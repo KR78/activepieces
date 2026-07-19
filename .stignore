@@ -1,0 +1,17 @@
+# build artifacts + deps (don't sync these)
+node_modules
+dist
+.turbo
+.cache
+build
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# docker
+cache/
+
+# os
+.DS_Store

@@ -214,6 +214,7 @@ Located at `/root/projects/activepieces/.env`. Key vars:
 | `AP_FRONTEND_URL` | `https://ap.vec.run` (the public URL) |
 | `AP_EXECUTION_MODE` | `UNSANDBOXED` (no isolate sandbox — simpler, works on any host) |
 | `AP_TELEMETRY_ENABLED` | `false` (telemetry off) |
+| `AP_EXECUTION_DATA_RETENTION_DAYS` | `30` — **REQUIRED**. Without this, `generateEngineToken` throws + piece bundle fetches fail with 403. |
 
 **Never commit `.env`** — it's gitignored. If you need to regenerate secrets, use:
 ```bash
@@ -257,6 +258,18 @@ docker logs activepieces-postgres 2>&1 | tail -10
 # If "superuser password is not specified":
 #   The --env-file flag is missing from docker compose.
 #   ALWAYS use: --env-file /root/projects/activepieces/.env
+```
+
+### Piece bundle fetch fails with 403 Forbidden
+
+```bash
+# Check the app logs for:
+#   "principal is not allowed for this route" (principalType: UNKNOWN)
+# This means generateEngineToken threw because AP_EXECUTION_DATA_RETENTION_DAYS is missing.
+# Fix: add it to .env + restart
+echo "AP_EXECUTION_DATA_RETENTION_DAYS=30" >> /root/projects/activepieces/.env
+cd /root/infrastructure/server-provision/configs/activepieces
+docker compose -p activepieces --env-file /root/projects/activepieces/.env   -f docker-compose.custom.yml up -d --force-recreate
 ```
 
 ### Changes don't appear on ap.vec.run

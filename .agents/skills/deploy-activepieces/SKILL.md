@@ -262,14 +262,35 @@ docker logs activepieces-postgres 2>&1 | tail -10
 
 ### Piece bundle fetch fails with 403 Forbidden
 
+Two causes, both must be fixed:
+
+**1. Missing `AP_EXECUTION_DATA_RETENTION_DAYS`** — `generateEngineToken` throws `SYSTEM_PROP_NOT_DEFINED`, the worker gets no engine token, the bundle endpoint sees `principalType: UNKNOWN` → 403.
+
 ```bash
-# Check the app logs for:
-#   "principal is not allowed for this route" (principalType: UNKNOWN)
-# This means generateEngineToken threw because AP_EXECUTION_DATA_RETENTION_DAYS is missing.
-# Fix: add it to .env + restart
 echo "AP_EXECUTION_DATA_RETENTION_DAYS=30" >> /root/projects/activepieces/.env
+```
+
+**2. Worker can't resolve `ap.vec.run`** — the app sends `PUBLIC_URL=https://ap.vec.run` to the worker via Socket.IO settings. The worker uses this URL for piece bundle fetches, but from inside Docker it can't reach the Tailscale IP. Fix: the `app` service has a network alias `ap.vec.run` in the compose file so Docker DNS resolves it to the app container:
+
+```yaml
+app:
+  networks:
+    activepieces:
+      aliases:
+        - ap.vec.run   # worker resolves ap.vec.run → app container
+```
+
+If the alias is missing, add it + restart:
+
+```bash
 cd /root/infrastructure/server-provision/configs/activepieces
 docker compose -p activepieces --env-file /root/projects/activepieces/.env   -f docker-compose.custom.yml up -d --force-recreate
+```
+
+Verify the worker can resolve it:
+```bash
+docker exec activepieces-worker-1 getent hosts ap.vec.run
+# should show: 172.x.x.x  ap.vec.run
 ```
 
 ### Changes don't appear on ap.vec.run

@@ -45,7 +45,7 @@ async function buildSettingsResponse(_log: FastifyBaseLogger): Promise<WorkerSet
         LOKI_USERNAME: system.get(AppSystemProp.LOKI_USERNAME),
         BETTERSTACK_HOST: system.get(AppSystemProp.BETTERSTACK_HOST),
         BETTERSTACK_TOKEN: system.get(AppSystemProp.BETTERSTACK_TOKEN),
-        PUBLIC_URL: await domainHelper.getPublicUrl({
+        PUBLIC_URL: await domainHelper.getInternalUrl({
             path: '',
         }),
         FILE_STORAGE_LOCATION: system.getOrThrow(AppSystemProp.FILE_STORAGE_LOCATION),

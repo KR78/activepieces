@@ -201,6 +201,30 @@ git push origin lab
 | Modify backend API | `packages/server/api/` | Custom endpoint |
 | Modify engine | `packages/engine/` | Execution logic |
 | Docker/build changes | `Dockerfile` or `docker-compose.custom.yml` | Add an env var |
+| Worker URL routing | `packages/server/api/src/app/workers/machine/machine-service.ts` | The `getInternalUrl` patch (see below) |
+
+## Customizations on the lab branch
+
+### getInternalUrl patch (machine-service.ts)
+
+The app sends `PUBLIC_URL` to workers via Socket.IO settings. Workers use this
+URL for piece bundle fetches. The upstream code uses `getPublicUrl` which returns
+`https://ap.vec.run` — but the app container only listens on port 80 (HTTP).
+nginx terminates TLS, not the app. So the worker tried HTTPS on port 443 →
+`ECONNREFUSED`.
+
+**The patch:** `machine-service.ts` uses `getInternalUrl` instead of `getPublicUrl`.
+`getInternalUrl` checks `AP_INTERNAL_URL` first (set to `http://ap.vec.run` in `.env`),
+so the worker fetches over HTTP on port 80. The network alias `ap.vec.run` → app
+container makes Docker DNS resolve it correctly.
+
+**Files changed:**
+- `packages/server/api/src/app/workers/machine/machine-service.ts` — `getPublicUrl` → `getInternalUrl`
+- `.env` — `AP_INTERNAL_URL=http://ap.vec.run`
+- `docker-compose.custom.yml` — network alias `ap.vec.run` on the app service
+
+**During upstream sync:** this patch may conflict if upstream changes `machine-service.ts`.
+Resolve by keeping the `getInternalUrl` version (our customization).
 
 ## The .env file (secrets — gitignored)
 
@@ -215,6 +239,7 @@ Located at `/root/projects/activepieces/.env`. Key vars:
 | `AP_EXECUTION_MODE` | `UNSANDBOXED` (no isolate sandbox — simpler, works on any host) |
 | `AP_TELEMETRY_ENABLED` | `false` (telemetry off) |
 | `AP_EXECUTION_DATA_RETENTION_DAYS` | `30` — **REQUIRED**. Without this, `generateEngineToken` throws + piece bundle fetches fail with 403. |
+| `AP_INTERNAL_URL` | `http://ap.vec.run` — the internal URL the app sends to workers (HTTP, not HTTPS). Requires the network alias. |
 
 **Never commit `.env`** — it's gitignored. If you need to regenerate secrets, use:
 ```bash
